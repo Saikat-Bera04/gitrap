@@ -1,21 +1,35 @@
 "use client"
 
-import { useState } from "react"
-import { Hexagon, CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
-
-type MintState = "idle" | "pending" | "success" | "error"
+import { useEffect, useState } from "react"
+import { Hexagon, CheckCircle2, AlertCircle, Loader2, ExternalLink } from "lucide-react"
+import { useMintReputation } from "@/hooks/useMintReputation"
+import { apiFetch, shortenAddress, type UserProfile } from "@/lib/api"
 
 export default function MintPage() {
-  const [mintState, setMintState] = useState<MintState>("idle")
+  const { mint, isPending, isConfirming, isSuccess, error, hash } = useMintReputation()
+  const [user, setUser] = useState<UserProfile | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    apiFetch<UserProfile>("/api/user/profile")
+      .then(setUser)
+      .catch((err) => setLoadError(err instanceof Error ? err.message : "Unable to load profile"))
+  }, [])
 
   const handleMint = () => {
-    setMintState("pending")
-    // Simulate transaction
-    setTimeout(() => {
-      // randomly succeed or fail for demo
-      Math.random() > 0.2 ? setMintState("success") : setMintState("error")
-    }, 2500)
+    if (!user?.stats) return
+
+    mint(
+      user.score,
+      user.stats.commits,
+      user.stats.pullRequests,
+      user.stats.issues,
+      user.githubUsername
+    )
   }
+
+  const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ?? ""
+  const shortContract = contractAddress ? shortenAddress(contractAddress) : "Not set"
 
   return (
     <div className="max-w-4xl mx-auto space-y-12">
@@ -49,14 +63,14 @@ export default function MintPage() {
               {/* Center Content */}
               <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 flex flex-col items-center z-20">
                 <div className="w-24 h-24 rounded-full border-4 border-[#ff4757]/80 shadow-[0_0_20px_rgba(255,71,87,0.5)] overflow-hidden bg-[#e0e5ec] mb-4">
-                  <img src="https://api.dicebear.com/7.x/identicon/svg?seed=0x1F" className="w-full h-full object-cover mix-blend-luminosity opacity-90" />
+                  <img src={user?.avatarUrl ?? `https://api.dicebear.com/7.x/identicon/svg?seed=${user?.walletAddress ?? "gitrap"}`} className="w-full h-full object-cover mix-blend-luminosity opacity-90" />
                 </div>
-                <h3 className="text-2xl font-bold tracking-tight mb-2">dev_wizard</h3>
+                <h3 className="text-2xl font-bold tracking-tight mb-2">{user?.githubUsername ?? "Connect GitHub"}</h3>
                 
                 <div className="flex gap-4 mt-6 w-full px-8">
                    <div className="flex-1 text-center bg-black/40 rounded-lg py-3 backdrop-blur-md border border-white/10">
                      <div className="text-[10px] text-[#a8b2d1] font-mono tracking-widest mb-1">SCORE</div>
-                     <div className="text-xl font-bold font-mono text-[#ff4757]">842</div>
+                     <div className="text-xl font-bold font-mono text-[#ff4757]">{user?.score ?? "--"}</div>
                    </div>
                    <div className="flex-1 text-center bg-black/40 rounded-lg py-3 backdrop-blur-md border border-white/10">
                      <div className="text-[10px] text-[#a8b2d1] font-mono tracking-widest mb-1">RANK</div>
@@ -68,7 +82,7 @@ export default function MintPage() {
               {/* Bottom Metadata */}
               <div className="absolute bottom-0 left-0 w-full p-6 border-t border-white/10 bg-black/20 backdrop-blur-md z-20">
                 <div className="flex justify-between items-center text-[10px] font-mono text-[#a8b2d1]">
-                   <span>0x1F4...A9C</span>
+                   <span>{user ? shortenAddress(user.walletAddress) : "0x..."}</span>
                    <span>GEN: 1</span>
                 </div>
               </div>
@@ -86,11 +100,11 @@ export default function MintPage() {
              <div className="space-y-4 font-mono text-sm">
                 <div className="flex justify-between border-b border-[#a3b1c6]/30 pb-3">
                   <span className="text-[#4a5568]">Network</span>
-                  <span className="font-bold">Base L2</span>
+                  <span className="font-bold">Sepolia</span>
                 </div>
                 <div className="flex justify-between border-b border-[#a3b1c6]/30 pb-3">
                   <span className="text-[#4a5568]">Contract</span>
-                  <span className="font-bold">0xG1tR...p4p</span>
+                  <span className="font-bold">{shortContract}</span>
                 </div>
                 <div className="flex justify-between pb-3">
                   <span className="text-[#4a5568]">Est. Gas Fee</span>
@@ -99,7 +113,19 @@ export default function MintPage() {
              </div>
 
              <div className="mt-8">
-               {mintState === "idle" && (
+               {loadError && (
+                 <div className="w-full py-4 bg-red-50 text-red-700 border-2 border-[#ff4757] rounded-xl font-bold tracking-widest text-center">
+                   {loadError}
+                 </div>
+               )}
+
+               {!loadError && !user && (
+                 <button disabled className="industrial-button industrial-button-secondary w-full py-4 text-base tracking-widest opacity-80 cursor-not-allowed flex items-center justify-center gap-2">
+                   <Loader2 className="w-5 h-5 animate-spin text-[#ff4757]" /> LOADING SCORE...
+                 </button>
+               )}
+
+               {user && (!isPending && !isConfirming && !isSuccess && !error) && (
                  <button 
                    onClick={handleMint}
                    className="industrial-button industrial-button-primary w-full py-4 text-base tracking-widest shadow-lg flex items-center justify-center gap-2"
@@ -108,28 +134,49 @@ export default function MintPage() {
                  </button>
                )}
 
-               {mintState === "pending" && (
+               {isPending && (
                  <button disabled className="industrial-button industrial-button-secondary w-full py-4 text-base tracking-widest opacity-80 cursor-not-allowed flex items-center justify-center gap-2">
-                   <Loader2 className="w-5 h-5 animate-spin text-[#ff4757]" /> SIGNING TRANSACTION...
+                   <Loader2 className="w-5 h-5 animate-spin text-[#ff4757]" /> WAITING FOR WALLET...
                  </button>
                )}
 
-               {mintState === "success" && (
-                 <div className="w-full py-4 bg-green-50 text-green-700 border-2 border-green-500 rounded-xl font-bold tracking-widest text-center flex items-center justify-center gap-2 shadow-[var(--shadow-glow-green)]">
-                   <CheckCircle2 className="w-5 h-5" /> MINT SUCCESSFUL
+               {isConfirming && (
+                 <button disabled className="industrial-button industrial-button-secondary w-full py-4 text-base tracking-widest opacity-80 cursor-not-allowed flex flex-col items-center justify-center gap-1">
+                   <div className="flex items-center gap-2">
+                     <Loader2 className="w-5 h-5 animate-spin text-amber-500" /> CONFIRMING ON-CHAIN...
+                   </div>
+                   {hash && (
+                     <a href={`https://sepolia.etherscan.io/tx/${hash}`} target="_blank" className="text-[10px] text-amber-600 hover:underline flex items-center gap-1 font-mono tracking-widest lowercase">
+                       view on etherscan <ExternalLink className="w-3 h-3" />
+                     </a>
+                   )}
+                 </button>
+               )}
+
+               {isSuccess && (
+                 <div className="w-full py-4 bg-green-50 text-green-700 border-2 border-green-500 rounded-xl font-bold tracking-widest text-center flex flex-col items-center justify-center gap-2 shadow-[var(--shadow-glow-green)]">
+                   <div className="flex items-center gap-2"><CheckCircle2 className="w-5 h-5" /> MINT SUCCESSFUL</div>
+                   {hash && (
+                     <a href={`https://sepolia.etherscan.io/tx/${hash}`} target="_blank" className="text-[10px] text-green-700/70 hover:underline flex items-center gap-1 font-mono tracking-widest lowercase">
+                       view on etherscan <ExternalLink className="w-3 h-3" />
+                     </a>
+                   )}
                  </div>
                )}
 
-               {mintState === "error" && (
-                 <div className="w-full flex gap-2">
-                   <div className="flex-1 py-4 bg-red-50 text-red-700 border-2 border-[#ff4757] rounded-xl font-bold tracking-widest text-center flex items-center justify-center gap-2 shadow-[var(--shadow-glow)]">
-                     <AlertCircle className="w-5 h-5" /> FAILED
+               {error && (
+                 <div className="w-full flex flex-col gap-3">
+                   <div className="flex-1 py-4 bg-red-50 text-red-700 border-2 border-[#ff4757] rounded-xl font-bold tracking-widest text-center flex flex-col items-center justify-center shadow-[var(--shadow-glow)]">
+                     <div className="flex items-center gap-2 mb-1"><AlertCircle className="w-5 h-5" /> REJECTED / FAILED</div>
+                     <span className="text-[9px] font-mono leading-none tracking-normal lowercase truncate px-4 max-w-full opacity-60">
+                       {error.message.split('\n')[0]}
+                     </span>
                    </div>
                    <button 
-                     onClick={() => setMintState("idle")}
-                     className="industrial-button industrial-button-primary px-6"
+                     onClick={handleMint}
+                     className="industrial-button industrial-button-primary"
                    >
-                     RETRY
+                     RETRY MINT
                    </button>
                  </div>
                )}
