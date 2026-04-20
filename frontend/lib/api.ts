@@ -51,6 +51,32 @@ export type LeaderboardResponse = {
   }
 }
 
+export type GitHubRepo = {
+  id: number
+  name: string
+  fullName: string
+  owner: string
+  stars: number
+  fork: boolean
+}
+
+export type GitHubIssue = {
+  id: number
+  number: number
+  title: string
+  body: string | null
+  state: "open" | "closed"
+  url: string
+  createdAt: string
+  updatedAt: string
+  repositoryUrl?: string
+  author?: {
+    login: string
+    avatarUrl: string | null
+  }
+  labels: string[]
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
 const TOKEN_KEY = "gitrap.sessionToken"
 

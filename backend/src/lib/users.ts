@@ -132,6 +132,19 @@ export async function getProfile(userId: string) {
   return user;
 }
 
+export async function getPublicProfileByUsername(githubUsername: string) {
+  const user = await prisma.user.findUnique({
+    where: { githubUsername },
+    select: userSelect
+  });
+
+  if (!user) {
+    throw new ApiError("NOT_FOUND", "Public profile not found");
+  }
+
+  return user;
+}
+
 export async function getScore(userId: string) {
   const user = await getProfile(userId);
   const stats = user.stats ?? {
@@ -149,7 +162,7 @@ export async function getScore(userId: string) {
   };
 }
 
-async function getStoredGitHubToken(userId: string) {
+export async function getStoredGitHubToken(userId: string) {
   const account = await prisma.gitHubAccount.findUnique({
     where: { userId },
     select: {

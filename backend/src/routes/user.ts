@@ -2,13 +2,28 @@ import { Router } from "express";
 import { z } from "zod";
 import { getAuth, requireAuth } from "../lib/auth.js";
 import { asyncHandler, sendOk } from "../lib/http.js";
-import { getProfile, getScore, isCacheFresh, refreshUserStats } from "../lib/users.js";
+import { githubUsernameSchema } from "../lib/validation.js";
+import {
+  getProfile,
+  getPublicProfileByUsername,
+  getScore,
+  isCacheFresh,
+  refreshUserStats
+} from "../lib/users.js";
 
 const router = Router();
 
 const refreshSchema = z.object({
   force: z.boolean().default(false)
 });
+
+router.get(
+  "/public/:username",
+  asyncHandler(async (req, res) => {
+    const username = githubUsernameSchema.parse(req.params.username);
+    return sendOk(res, await getPublicProfileByUsername(username));
+  })
+);
 
 router.use(requireAuth);
 

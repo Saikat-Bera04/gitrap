@@ -32,7 +32,7 @@ type CommitSearchItem = {
 };
 
 type GitHubRequestOptions = {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PATCH";
   token?: string;
   body?: unknown;
   accept?: string;
@@ -104,6 +104,141 @@ async function githubRequest<T>(url: string, options: GitHubRequestOptions = {})
   }
 
   return (await response.json()) as T;
+}
+
+export async function listGitHubRepositories(token: string) {
+  const repos = await fetchRepositories(token);
+
+  return repos
+    .map((repo) => ({
+      id: repo.id,
+      name: repo.name,
+      fullName: repo.full_name,
+      owner: repo.owner.login,
+      stars: repo.stargazers_count,
+      fork: repo.fork
+    }))
+    .sort((a, b) => Number(a.fork) - Number(b.fork) || b.stars - a.stars);
+}
+
+type GitHubIssue = {
+  id: number;
+  number: number;
+  title: string;
+  body: string | null;
+  state: "open" | "closed";
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  repository_url?: string;
+  user: {
+    login: string;
+    avatar_url: string | null;
+  };
+  labels: Array<{ name: string; color: string }>;
+  pull_request?: unknown;
+};
+
+export async function listGitHubIssues(token: string) {
+  const issues = await githubPaginatedRequest<GitHubIssue>(
+    "https://api.github.com/issues?filter=created&state=all&per_page=100&sort=updated",
+    token,
+    { maxPages: 2 }
+  );
+
+  return issues
+    .filter((issue) => !issue.pull_request)
+    .map((issue) => ({
+      id: issue.id,
+      number: issue.number,
+      title: issue.title,
+      body: issue.body,
+      state: issue.state,
+      url: issue.html_url,
+      createdAt: issue.created_at,
+      updatedAt: issue.updated_at,
+      repositoryUrl: issue.repository_url,
+      author: {
+        login: issue.user.login,
+        avatarUrl: issue.user.avatar_url
+      },
+      labels: issue.labels.map((label) => label.name)
+    }));
+}
+
+export async function createGitHubIssue(
+  token: string,
+  input: {
+    owner: string;
+    repo: string;
+    title: string;
+    body?: string;
+    labels?: string[];
+  }
+) {
+  const issue = await githubRequest<GitHubIssue>(
+    `https://api.github.com/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/issues`,
+    {
+      method: "PATCH",
+      token,
+      body: {
+        title: input.title,
+        body: input.body,
+        labels: input.labels
+      }
+    }
+  );
+
+  return {
+    id: issue.id,
+    number: issue.number,
+    title: issue.title,
+    body: issue.body,
+    state: issue.state,
+    url: issue.html_url,
+    createdAt: issue.created_at,
+    updatedAt: issue.updated_at,
+    labels: issue.labels.map((label) => label.name)
+  };
+}
+
+export async function updateGitHubIssue(
+  token: string,
+  input: {
+    owner: string;
+    repo: string;
+    issueNumber: number;
+    title?: string;
+    body?: string;
+    state?: "open" | "closed";
+    labels?: string[];
+  }
+) {
+  const issue = await githubRequest<GitHubIssue>(
+    `https://api.github.com/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/issues/${input.issueNumber}`,
+    {
+      method: "POST",
+      token,
+      body: {
+        title: input.title,
+        body: input.body,
+        state: input.state,
+        labels: input.labels
+      }
+    }
+  );
+
+  return {
+    id: issue.id,
+    number: issue.number,
+    title: issue.title,
+    body: issue.body,
+    state: issue.state,
+    url: issue.html_url,
+    createdAt: issue.created_at,
+    updatedAt: issue.updated_at,
+    labels: issue.labels.map((label) => label.name)
+  };
 }
 
 async function githubPaginatedRequest<T>(
