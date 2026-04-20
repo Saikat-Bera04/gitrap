@@ -17,7 +17,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             { label: "Public Profile", href: "/profile/me", icon: Shield },
             { label: "Mint NFT", href: "/mint", icon: Award },
             { label: "Leaderboard", href: "/leaderboard", icon: Activity },
-            { label: "DAO Cards", href: "/dao", icon: Users },
+            { label: "DAO Network", href: "/dao", icon: Users },
+            { label: "Governance", href: "/governance", icon: Activity },
             { label: "Settings", href: "/settings", icon: Settings },
           ].map((item) => (
             <Link 

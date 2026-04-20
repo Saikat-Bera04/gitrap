@@ -76,7 +76,7 @@ function Tag({ children }: { children: React.ReactNode }) {
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
-export default function AgenticPage() {
+export default function GitRapLandingPage() {
   const [email, setEmail] = useState("")
   const [submitted, setSubmitted] = useState(false)
   const [heroReady, setHeroReady] = useState(false)
@@ -258,13 +258,13 @@ export default function AgenticPage() {
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-8 mb-16">
             <div>
               <PixelIcon type="agents" size={40} />
-              <div className="mt-4"><Tag>AGENT TYPES</Tag></div>
+              <div className="mt-4"><Tag>VERIFIED DEVS</Tag></div>
               <RevealText className="mt-5 text-4xl md:text-5xl font-light tracking-tight leading-[1.05]">
-                {"Plug-and-play agents\nready to deploy."}
+                {"Top Web3 Talent\nready to hire."}
               </RevealText>
             </div>
             <p className="text-sm text-black/45 leading-relaxed max-w-xs">
-              Start with a pre-built agent or compose your own from primitives. Every agent is versioned, testable, and observable.
+              Find developers based on their verified on-chain score. No resumes, just verifiable code contributions.
             </p>
           </div>
 
@@ -285,10 +285,10 @@ export default function AgenticPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3" onMouseMove={handleMouse}>
             {[
-              { n: "01", title: "Define",  desc: "Describe your agent in plain language. Set objectives, tools, and boundaries.", delay: 0,   img: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/define-5aafAmGBrxZpOqJ3XLHY3n3qzC2I5K.png" },
-              { n: "02", title: "Compose", desc: "Chain agents together in the visual editor. Wire triggers, conditions, and outputs.", delay: 80,  img: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/compose-5RT5VR4f1Y3GoFmovqTKLTG4UXp3g2.png" },
-              { n: "03", title: "Test",    desc: "Run sandboxed simulations. Inspect every decision in the execution trace.", delay: 140, img: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/test-zm8guZwxJHtwWsJ7XO4B0CF7GzlNK8.png" },
-              { n: "04", title: "Deploy",  desc: "Push globally in one click. Agents auto-scale, self-heal, and report back.", delay: 200, img: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/deploy-an8fgHSLzniojkcmRyGGIFQUJF9T5J.png" },
+              { n: "01", title: "Connect",  desc: "Link your Web3 wallet and authorize GitHub in one click.", delay: 0,   img: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/define-5aafAmGBrxZpOqJ3XLHY3n3qzC2I5K.png" },
+              { n: "02", title: "Analyze", desc: "GitRap's indexer evaluates your commits, PRs, issues and stars.", delay: 80,  img: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/compose-5RT5VR4f1Y3GoFmovqTKLTG4UXp3g2.png" },
+              { n: "03", title: "Score",    desc: "Receive your transparent, verifiable reputation score.", delay: 140, img: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/test-zm8guZwxJHtwWsJ7XO4B0CF7GzlNK8.png" },
+              { n: "04", title: "Mint",  desc: "Mint your Soulbound Token (SBT) and unlock DAO bounties.", delay: 200, img: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/deploy-an8fgHSLzniojkcmRyGGIFQUJF9T5J.png" },
             ].map((step) => (
               <BentoCard key={step.n} className="relative overflow-hidden flex flex-col min-h-[320px]" delay={step.delay}>
                 {/* Image at top — mask fades it out strongly before the bottom edge */}
@@ -625,10 +625,10 @@ export default function AgenticPage() {
         />
         <div className="relative z-10 max-w-2xl mx-auto text-center">
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-light tracking-tight leading-[1.05] mb-6">
-            Start building your<br />agent workforce.
+            Start building your<br />on-chain reputation.
           </h2>
           <p className="text-sm text-black/45 leading-relaxed mb-10">
-            Join thousands of teams deploying AI agents that work around the clock, across every timezone.
+            Join thousands of developers turning their GitHub activity into verifiable Web3 credentials.
           </p>
           {!submitted ? (
             <form
@@ -663,7 +663,7 @@ export default function AgenticPage() {
       {/* ── FOOTER ────────────────────────────────────────────────────────── */}
       <footer className="py-10 px-6 md:px-12 lg:px-20 border-t border-black/[0.06]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
-          <span className="font-pixel text-xs tracking-[0.25em] text-black/50">AGENTIC</span>
+          <span className="font-pixel text-xs tracking-[0.25em] text-black/50">GITRAP</span>
 
           {/* Nav sections */}
           <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
@@ -692,7 +692,7 @@ export default function AgenticPage() {
           </div>
         </div>
         <div className="max-w-6xl mx-auto mt-8 pt-6 border-t border-black/[0.04]">
-          <span className="text-xs text-black/20">© 2026 Agentic. All rights reserved.</span>
+          <span className="text-xs text-black/20">© 2026 GITRAP. All rights reserved.</span>
         </div>
       </footer>
     </div>
