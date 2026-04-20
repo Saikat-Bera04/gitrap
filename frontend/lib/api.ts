@@ -77,6 +77,27 @@ export type GitHubIssue = {
   labels: string[]
 }
 
+export type SiteIssue = {
+  id: string
+  repoFullName: string
+  githubIssueId: number
+  githubIssueNumber: number
+  title: string
+  body: string | null
+  state: string
+  url: string
+  createdAt: string
+  updatedAt: string
+  createdBy: {
+    githubUsername: string
+    walletAddress: string
+    avatarUrl: string | null
+    score: number
+  }
+}
+
+export type DaoVoteSummary = Record<string, { verified: number; notVerified: number }>
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
 const TOKEN_KEY = "gitrap.sessionToken"
 

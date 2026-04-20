@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Search, Filter, ShieldCheck, Star, Zap, Github, ChevronDown, ExternalLink, BriefcaseBusiness } from "lucide-react"
-import { apiFetch, shortenAddress, type LeaderboardResponse, type UserProfile } from "@/lib/api"
+import { Search, Filter, ShieldCheck, Star, Zap, Github, ChevronDown, ExternalLink, BriefcaseBusiness, ThumbsUp, ThumbsDown, Loader2 } from "lucide-react"
+import { apiFetch, shortenAddress, type DaoVoteSummary, type LeaderboardResponse, type UserProfile } from "@/lib/api"
+import { useWeb3Auth } from "@/hooks/useWeb3Auth"
 
 const DEMO_DAOS = [
   {
@@ -52,13 +53,69 @@ function inferSkills(user: UserProfile) {
 export default function DaoDiscoveryPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [users, setUsers] = useState<UserProfile[]>([])
+  const [votes, setVotes] = useState<DaoVoteSummary>({})
+  const [votingDao, setVotingDao] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { address, connectWallet } = useWeb3Auth()
 
   useEffect(() => {
-    apiFetch<LeaderboardResponse>("/api/leaderboard?limit=24&page=1")
-      .then((data) => setUsers(data.users))
-      .catch((err) => setError(err instanceof Error ? err.message : "Unable to load verified contributors"))
+    const loadData = async () => {
+      try {
+        setError(null)
+        
+        console.log("[DAO] Loading leaderboard and votes data...")
+        
+        const [leaderboard, voteSummary] = await Promise.all([
+          apiFetch<LeaderboardResponse>("/api/leaderboard?limit=24&page=1").catch(err => {
+            console.error("[DAO] Leaderboard fetch failed:", err)
+            throw err
+          }),
+          apiFetch<DaoVoteSummary>("/api/dao/votes").catch(err => {
+            console.error("[DAO] Votes fetch failed:", err)
+            throw err
+          })
+        ])
+        
+        console.log("[DAO] Data loaded successfully", { users: leaderboard.users.length, votes: Object.keys(voteSummary).length })
+        setUsers(leaderboard.users)
+        setVotes(voteSummary)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unable to load verified contributors"
+        console.error("[DAO] Error:", message)
+        setError(message)
+      }
+    }
+    
+    void loadData()
   }, [])
+
+  const voteDao = async (daoName: string, verdict: "verified" | "not_verified") => {
+    setVotingDao(daoName)
+    setError(null)
+    try {
+      const walletAddress = address ?? (await connectWallet())
+      
+      console.log("[DAO] Voting:", { daoName, verdict, walletAddress })
+      
+      await apiFetch("/api/dao/votes", {
+        method: "POST",
+        body: JSON.stringify({ daoName, verdict, walletAddress })
+      })
+      
+      console.log("[DAO] Vote recorded successfully, refreshing votes...")
+      
+      const updatedVotes = await apiFetch<DaoVoteSummary>("/api/dao/votes")
+      setVotes(updatedVotes)
+      
+      console.log("[DAO] Votes refreshed successfully")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "DAO vote failed"
+      console.error("[DAO] Vote error:", message)
+      setError(message)
+    } finally {
+      setVotingDao(null)
+    }
+  }
 
   const filteredUsers = useMemo(() => {
     const value = searchTerm.trim().toLowerCase()
@@ -91,13 +148,15 @@ export default function DaoDiscoveryPage() {
         </div>
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
           {DEMO_DAOS.map((dao) => (
-            <a key={dao.name} href={dao.url} target="_blank" className="block bg-[#e0e5ec] rounded-lg p-5 border border-[#a3b1c6]/30 shadow-[var(--shadow-card)] hover:-translate-y-1 transition-transform">
+            <div key={dao.name} className="bg-[#e0e5ec] rounded-lg p-5 border border-[#a3b1c6]/30 shadow-[var(--shadow-card)] hover:-translate-y-1 transition-transform">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div>
                   <h3 className="font-bold text-[#2d3436]">{dao.name}</h3>
                   <p className="text-xs font-mono text-[#4a5568]">{dao.focus}</p>
                 </div>
-                <ExternalLink className="w-4 h-4 text-[#4a5568]" />
+                <a href={dao.url} target="_blank" className="w-8 h-8 rounded bg-[#d1d9e6]/60 flex items-center justify-center">
+                  <ExternalLink className="w-4 h-4 text-[#4a5568]" />
+                </a>
               </div>
               <div className="font-mono text-sm font-bold text-[#ff4757] mb-3">{dao.bounty}</div>
               <p className="text-xs text-[#4a5568] leading-relaxed mb-4">{dao.pitch}</p>
@@ -108,7 +167,23 @@ export default function DaoDiscoveryPage() {
                   </span>
                 ))}
               </div>
-            </a>
+              <div className="grid grid-cols-2 gap-2 mt-5">
+                <button
+                  onClick={() => void voteDao(dao.name, "verified")}
+                  className="industrial-button industrial-button-secondary h-9 text-[10px] flex items-center justify-center gap-1"
+                >
+                  {votingDao === dao.name ? <Loader2 className="w-3 h-3 animate-spin" /> : <ThumbsUp className="w-3 h-3" />}
+                  VERIFIED {votes[dao.name]?.verified ?? 0}
+                </button>
+                <button
+                  onClick={() => void voteDao(dao.name, "not_verified")}
+                  className="industrial-button h-9 text-[10px] flex items-center justify-center gap-1 bg-[#ff4757] text-white"
+                >
+                  <ThumbsDown className="w-3 h-3" />
+                  NOT {votes[dao.name]?.notVerified ?? 0}
+                </button>
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -136,7 +211,20 @@ export default function DaoDiscoveryPage() {
         </div>
       </div>
 
-      {error && <div className="industrial-card p-5 text-[#ff4757] font-mono text-sm">{error}</div>}
+      {error && (
+        <div className="industrial-card p-5 bg-red-50 border border-red-200 rounded-lg">
+          <div className="text-red-700 font-mono text-sm">
+            <div className="font-bold mb-2">⚠️ Error loading DAO data:</div>
+            <div className="text-xs text-red-600 mb-3">{error}</div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="text-xs underline hover:no-underline text-red-600"
+            >
+              Refresh page
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {filteredUsers.map((dev) => {

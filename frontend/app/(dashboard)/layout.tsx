@@ -30,6 +30,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             { label: "Public Profile", href: `/profile/${profile?.githubUsername ?? "me"}`, icon: Shield },
             { label: "Mint NFT", href: "/mint", icon: Award },
             { label: "Leaderboard", href: "/leaderboard", icon: Activity },
+            { label: "Issues", href: "/issues", icon: Activity },
             { label: "DAO Network", href: "/dao", icon: Users },
             { label: "Governance", href: "/governance", icon: Activity },
             { label: "Settings", href: "/settings", icon: Settings },

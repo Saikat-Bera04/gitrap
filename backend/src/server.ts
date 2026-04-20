@@ -9,6 +9,7 @@ import leaderboardRouter from "./routes/leaderboard.js";
 import nftRouter from "./routes/nft.js";
 import scoreRouter from "./routes/score.js";
 import githubRouter from "./routes/github.js";
+import daoRouter from "./routes/dao.js";
 
 const app = express();
 
@@ -29,6 +30,7 @@ app.use("/api/leaderboard", leaderboardRouter);
 app.use("/api/nft", nftRouter);
 app.use("/api/score", scoreRouter);
 app.use("/api/github", githubRouter);
+app.use("/api/dao", daoRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

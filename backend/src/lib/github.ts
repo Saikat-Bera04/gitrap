@@ -100,7 +100,12 @@ async function githubRequest<T>(url: string, options: GitHubRequestOptions = {})
       details = await response.text();
     }
 
-    throw new ApiError("UPSTREAM_ERROR", `GitHub API request failed with ${response.status}`, details);
+    const message =
+      typeof details === "object" && details && "message" in details
+        ? String((details as { message?: unknown }).message)
+        : `GitHub API request failed with ${response.status}`;
+
+    throw new ApiError("UPSTREAM_ERROR", message, details);
   }
 
   return (await response.json()) as T;
@@ -179,7 +184,7 @@ export async function createGitHubIssue(
   const issue = await githubRequest<GitHubIssue>(
     `https://api.github.com/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/issues`,
     {
-      method: "PATCH",
+      method: "POST",
       token,
       body: {
         title: input.title,
@@ -217,7 +222,7 @@ export async function updateGitHubIssue(
   const issue = await githubRequest<GitHubIssue>(
     `https://api.github.com/repos/${encodeURIComponent(input.owner)}/${encodeURIComponent(input.repo)}/issues/${input.issueNumber}`,
     {
-      method: "POST",
+      method: "PATCH",
       token,
       body: {
         title: input.title,

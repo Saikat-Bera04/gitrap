@@ -8,6 +8,7 @@ import {
   updateGitHubIssue
 } from "../lib/github.js";
 import { asyncHandler, sendOk } from "../lib/http.js";
+import { prisma } from "../lib/prisma.js";
 import { getStoredGitHubToken } from "../lib/users.js";
 
 const router = Router();
@@ -40,6 +41,38 @@ function splitRepo(repo: string) {
   return { owner, repo: name };
 }
 
+router.get(
+  "/site-issues",
+  asyncHandler(async (_req, res) => {
+    const issues = await prisma.siteIssue.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        repoFullName: true,
+        githubIssueId: true,
+        githubIssueNumber: true,
+        title: true,
+        body: true,
+        state: true,
+        url: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: {
+          select: {
+            githubUsername: true,
+            walletAddress: true,
+            avatarUrl: true,
+            score: true
+          }
+        }
+      }
+    });
+
+    return sendOk(res, issues);
+  })
+);
+
 router.use(requireAuth);
 
 router.get(
@@ -64,21 +97,49 @@ router.post(
   "/issues",
   asyncHandler(async (req, res) => {
     const auth = getAuth(req);
-    const body = issueSchema.parse(req.body);
-    const token = await getStoredGitHubToken(auth.userId);
-    const repo = splitRepo(body.repo);
+    
+    try {
+      const body = issueSchema.parse(req.body);
+      const token = await getStoredGitHubToken(auth.userId);
+      const repo = splitRepo(body.repo);
 
-    return sendOk(
-      res,
-      await createGitHubIssue(token, {
+      console.log(`[GitHub] Creating issue for user ${auth.userId} in ${body.repo}`);
+
+      const issue = await createGitHubIssue(token, {
         owner: repo.owner,
         repo: repo.repo,
         title: body.title,
         body: body.body,
         labels: body.labels
-      }),
-      201
-    );
+      });
+
+      console.log(`[GitHub] Issue created: ${issue.number} in ${body.repo}`);
+
+      await prisma.siteIssue.upsert({
+        where: { githubIssueId: issue.id },
+        create: {
+          createdById: auth.userId,
+          repoFullName: body.repo,
+          githubIssueId: issue.id,
+          githubIssueNumber: issue.number,
+          title: issue.title,
+          body: issue.body,
+          state: issue.state,
+          url: issue.url
+        },
+        update: {
+          title: issue.title,
+          body: issue.body,
+          state: issue.state,
+          url: issue.url
+        }
+      });
+
+      return sendOk(res, issue, 201);
+    } catch (error) {
+      console.error(`[GitHub] Error creating issue:`, error);
+      throw error;
+    }
   })
 );
 
@@ -86,13 +147,15 @@ router.patch(
   "/issues",
   asyncHandler(async (req, res) => {
     const auth = getAuth(req);
-    const body = updateIssueSchema.parse(req.body);
-    const token = await getStoredGitHubToken(auth.userId);
-    const repo = splitRepo(body.repo);
+    
+    try {
+      const body = updateIssueSchema.parse(req.body);
+      const token = await getStoredGitHubToken(auth.userId);
+      const repo = splitRepo(body.repo);
 
-    return sendOk(
-      res,
-      await updateGitHubIssue(token, {
+      console.log(`[GitHub] Updating issue #${body.issueNumber} in ${body.repo}`);
+
+      const issue = await updateGitHubIssue(token, {
         owner: repo.owner,
         repo: repo.repo,
         issueNumber: body.issueNumber,
@@ -100,8 +163,26 @@ router.patch(
         body: body.body,
         state: body.state,
         labels: body.labels
-      })
-    );
+      });
+
+      await prisma.siteIssue.updateMany({
+        where: {
+          repoFullName: body.repo,
+          githubIssueNumber: body.issueNumber
+        },
+        data: {
+          title: issue.title,
+          body: issue.body,
+          state: issue.state,
+          url: issue.url
+        }
+      });
+
+      return sendOk(res, issue);
+    } catch (error) {
+      console.error(`[GitHub] Error updating issue:`, error);
+      throw error;
+    }
   })
 );
 
