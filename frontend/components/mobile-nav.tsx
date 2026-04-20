@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useWeb3Auth } from "@/hooks/useWeb3Auth"
 import { useRouter } from "next/navigation"
 import { Wallet, LayoutDashboard } from "lucide-react"
@@ -20,10 +20,16 @@ const NAV_STYLE = {
 
 export function MobileNav() {
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const { address, disconnect } = useWeb3Auth()
   const router = useRouter()
 
   const close = () => setOpen(false)
+  const hasAddress = mounted && Boolean(address)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   return (
     <div className="fixed top-4 inset-x-0 z-50 flex justify-center px-4 pointer-events-none">
@@ -50,7 +56,7 @@ export function MobileNav() {
           </div>
 
           <div className="flex items-center gap-2">
-            {address ? (
+            {hasAddress ? (
               <button 
                 onClick={() => router.push("/dashboard")}
                 className="text-[11px] px-4 py-2 rounded-xl bg-[#e0e5ec] border border-black/10 text-[#2d3436] hover:bg-black/[0.03] hover:border-black/20 shadow-[var(--shadow-card)] font-bold transition-all duration-200 tracking-wide hidden md:flex items-center gap-2" style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>
@@ -117,7 +123,7 @@ export function MobileNav() {
               </a>
             ))}
             <div className="mt-1 px-2 pb-1">
-              {address ? (
+              {hasAddress ? (
                 <button 
                   onClick={() => { close(); router.push("/dashboard"); }}
                   className="w-full text-[11px] px-4 py-2.5 rounded-xl bg-[#e0e5ec] border border-black/10 text-[#2d3436] hover:bg-black/[0.03] hover:border-black/20 shadow-[var(--shadow-card)] font-bold transition-all duration-200 tracking-wide flex justify-center items-center gap-2" style={{ fontFamily: "system-ui, -apple-system, sans-serif" }}>

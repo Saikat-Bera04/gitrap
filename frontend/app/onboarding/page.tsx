@@ -15,6 +15,7 @@ export default function OnboardingPage() {
     githubHandle, 
     isConnectingWallet, 
     isConnectingGithub, 
+    walletError,
     connectWallet, 
     connectGithub 
   } = useWeb3Auth()
@@ -64,7 +65,7 @@ export default function OnboardingPage() {
               </div>
               <h2 className="text-2xl font-bold mb-3 tracking-tight">Connect Web3 Wallet</h2>
               <button 
-                onClick={connectWallet}
+                onClick={() => void connectWallet().catch(() => undefined)}
                 disabled={isConnectingWallet}
                 className="industrial-button industrial-button-primary w-full flex items-center justify-center gap-2 h-14 relative overflow-hidden group"
               >
@@ -76,6 +77,11 @@ export default function OnboardingPage() {
                 {/* Physical edge detail */}
                 <div className="absolute inset-x-0 bottom-0 h-1 bg-black/20" />
               </button>
+              {walletError && (
+                <p className="mt-4 text-xs leading-relaxed text-[#ff4757] font-mono">
+                  {walletError}
+                </p>
+              )}
             </div>
           )}
 
@@ -89,7 +95,7 @@ export default function OnboardingPage() {
                 Link your GitHub to calculate your on-chain reputation based on real commits.
               </p>
               <button 
-                onClick={connectGithub}
+                onClick={() => void connectGithub().catch(() => undefined)}
                 disabled={isConnectingGithub}
                 className="industrial-button industrial-button-primary w-full flex items-center justify-center gap-2 h-14 relative overflow-hidden group bg-[#2d3436]"
               >
