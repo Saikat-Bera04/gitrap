@@ -1,11 +1,14 @@
 "use client"
 
-import { createContext, useContext, useState, ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react"
 import { useRouter } from "next/navigation"
+import { useAccount, useConnect, useDisconnect } from "wagmi"
+import { apiFetch, clearSessionToken, getSessionToken, type UserProfile } from "@/lib/api"
 
 type Web3AuthContextType = {
   address: string | null
   githubHandle: string | null
+  profile: UserProfile | null
   isConnectingWallet: boolean
   isConnectingGithub: boolean
   connectWallet: () => Promise<void>
@@ -16,47 +19,109 @@ type Web3AuthContextType = {
 const Web3AuthContext = createContext<Web3AuthContextType | undefined>(undefined)
 
 export function Web3AuthProvider({ children }: { children: ReactNode }) {
-  const [address, setAddress] = useState<string | null>(null)
-  const [githubHandle, setGithubHandle] = useState<string | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isConnectingWallet, setIsConnectingWallet] = useState(false)
   const [isConnectingGithub, setIsConnectingGithub] = useState(false)
   const router = useRouter()
+  const { address, isConnected } = useAccount()
+  const { connectAsync, connectors } = useConnect()
+  const { disconnect: disconnectWallet } = useDisconnect()
+
+  useEffect(() => {
+    if (!getSessionToken()) return
+
+    let cancelled = false
+    apiFetch<UserProfile>("/api/user/profile")
+      .then((nextProfile) => {
+        if (!cancelled) setProfile(nextProfile)
+      })
+      .catch(() => {
+        clearSessionToken()
+        if (!cancelled) setProfile(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const connectWallet = async () => {
     setIsConnectingWallet(true)
-    // Placeholder for actual Wagmi / Ethers / Privy logic
-    await new Promise(resolve => setTimeout(resolve, 1200))
-    setAddress("0x1F4...A9C")
-    setIsConnectingWallet(false)
+    try {
+      const ethereum = (window as typeof window & { ethereum?: { isMetaMask?: boolean } }).ethereum
+
+      if (!ethereum?.isMetaMask) {
+        throw new Error("MetaMask was not detected. Install or enable MetaMask, then try again.")
+      }
+
+      const injected =
+        connectors.find((connector) => connector.name.toLowerCase().includes("metamask")) ??
+        connectors.find((connector) => connector.id === "injected")
+
+      if (!injected) {
+        throw new Error("MetaMask connector was not found")
+      }
+
+      await connectAsync({ connector: injected })
+    } finally {
+      setIsConnectingWallet(false)
+    }
   }
 
   const connectGithub = async () => {
+    if (!address) {
+      await connectWallet()
+      return
+    }
+
+    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
+    const redirectUri = process.env.NEXT_PUBLIC_GITHUB_REDIRECT_URI
+
+    if (!clientId || !redirectUri) {
+      throw new Error("GitHub OAuth environment variables are missing")
+    }
+
     setIsConnectingGithub(true)
-    // Placeholder for actual OAuth logic
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    setGithubHandle("dev_wizard")
-    setIsConnectingGithub(false)
+    const nonce = crypto.randomUUID()
+    const state = btoa(JSON.stringify({ nonce, walletAddress: address }))
+    window.localStorage.setItem("gitrap.oauthState", nonce)
+    window.localStorage.setItem("gitrap.pendingWallet", address)
+    document.cookie = `gitrap.oauthState=${nonce}; path=/; max-age=600; SameSite=Lax`
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: "read:user repo",
+      state,
+    })
+
+    window.location.href = `https://github.com/login/oauth/authorize?${params.toString()}`
   }
 
   const disconnect = () => {
-    setAddress(null)
-    setGithubHandle(null)
+    clearSessionToken()
+    window.localStorage.removeItem("gitrap.oauthState")
+    window.localStorage.removeItem("gitrap.pendingWallet")
+    setProfile(null)
+    disconnectWallet()
     router.push("/onboarding")
   }
 
-  return (
-    <Web3AuthContext.Provider value={{
-      address,
-      githubHandle,
-      isConnectingWallet,
+  const value = useMemo<Web3AuthContextType>(
+    () => ({
+      address: address ?? profile?.walletAddress ?? null,
+      githubHandle: profile?.githubUsername ?? null,
+      profile,
+      isConnectingWallet: isConnectingWallet || (!isConnected && false),
       isConnectingGithub,
       connectWallet,
       connectGithub,
-      disconnect
-    }}>
-      {children}
-    </Web3AuthContext.Provider>
+      disconnect,
+    }),
+    [address, profile, isConnectingWallet, isConnected, isConnectingGithub]
   )
+
+  return <Web3AuthContext.Provider value={value}>{children}</Web3AuthContext.Provider>
 }
 
 export function useWeb3Auth() {

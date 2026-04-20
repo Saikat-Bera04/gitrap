@@ -1,11 +1,7 @@
 import type { Metadata } from 'next'
-import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Providers } from '@/components/providers'
 import './globals.css'
-
-const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
-const jetBrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' });
 
 export const metadata: Metadata = {
   title: 'GitRap — On-Chain Reputation for Developers',
@@ -49,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetBrainsMono.variable}`}>
+    <html lang="en">
       <body className="font-sans antialiased text-[#2d3436] bg-[#e0e5ec]">
         <Providers>
           {children}

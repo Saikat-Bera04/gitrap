@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id             String              @id @default(cuid())
+  walletAddress  String              @unique
+  githubUsername String              @unique
+  githubId       String              @unique
+  avatarUrl      String?
+  score          Int                 @default(0)
+  lastUpdated    DateTime?
+  createdAt      DateTime            @default(now())
+  stats          ContributionStats?
+  githubAccount  GitHubAccount?
+
+  @@index([walletAddress])
+  @@index([githubUsername])
+  @@index([score])
+}
+
+model GitHubAccount {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  accessTokenEncrypted String
+  accessTokenIv        String
+  accessTokenTag       String
+  tokenType            String?
+  scope                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ContributionStats {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  commits      Int      @default(0)
+  pullRequests Int      @default(0)
+  issues       Int      @default(0)
+  stars        Int      @default(0)
+  repositories Int      @default(0)
+  updatedAt    DateTime @updatedAt
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([updatedAt])
+}
