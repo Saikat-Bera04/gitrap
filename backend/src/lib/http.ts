@@ -74,12 +74,21 @@ export function errorHandler(error: unknown, _req: Request, res: Response, _next
     });
   }
 
-  console.error(error);
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const errorStack = error instanceof Error ? error.stack : undefined;
+  
+  console.error("[ERROR]", {
+    message: errorMessage,
+    stack: errorStack,
+    error
+  });
+  
   return res.status(500).json({
     ok: false,
     error: {
       code: "INTERNAL_ERROR",
-      message: "Unexpected server error"
+      message: process.env.NODE_ENV === "development" ? errorMessage : "Unexpected server error",
+      details: process.env.NODE_ENV === "development" ? { stack: errorStack } : undefined
     }
   });
 }

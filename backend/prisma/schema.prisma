@@ -19,10 +19,45 @@ model User {
   createdAt      DateTime            @default(now())
   stats          ContributionStats?
   githubAccount  GitHubAccount?
+  siteIssues     SiteIssue[]
+  daoVotes       DaoVote[]
 
   @@index([walletAddress])
   @@index([githubUsername])
   @@index([score])
+}
+
+model SiteIssue {
+  id               String   @id @default(cuid())
+  createdById      String
+  repoFullName     String
+  githubIssueId    Int      @unique
+  githubIssueNumber Int
+  title            String
+  body             String?
+  state            String
+  url              String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdBy        User     @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([createdById])
+  @@index([repoFullName])
+  @@index([state])
+  @@index([createdAt])
+}
+
+model DaoVote {
+  id          String   @id @default(cuid())
+  userId      String
+  daoName     String
+  verdict     String
+  walletAddress String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, daoName])
+  @@index([daoName])
 }
 
 model GitHubAccount {

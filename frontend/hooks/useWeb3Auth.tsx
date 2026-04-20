@@ -3,7 +3,15 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from "react"
 import { useRouter } from "next/navigation"
 import { useAccount, useConnect, useDisconnect } from "wagmi"
+import { sepolia } from "wagmi/chains"
 import { apiFetch, clearSessionToken, getSessionToken, type UserProfile } from "@/lib/api"
+
+type EthereumProvider = {
+  isMetaMask?: boolean
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>
+  on?: (event: string, listener: (...args: unknown[]) => void) => void
+  removeListener?: (event: string, listener: (...args: unknown[]) => void) => void
+}
 
 type Web3AuthContextType = {
   address: string | null
@@ -11,7 +19,8 @@ type Web3AuthContextType = {
   profile: UserProfile | null
   isConnectingWallet: boolean
   isConnectingGithub: boolean
-  connectWallet: () => Promise<void>
+  walletError: string | null
+  connectWallet: () => Promise<string>
   connectGithub: () => Promise<void>
   disconnect: () => void
 }
@@ -22,6 +31,8 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isConnectingWallet, setIsConnectingWallet] = useState(false)
   const [isConnectingGithub, setIsConnectingGithub] = useState(false)
+  const [walletError, setWalletError] = useState<string | null>(null)
+  const [walletAddress, setWalletAddress] = useState<string | null>(null)
   const router = useRouter()
   const { address, isConnected } = useAccount()
   const { connectAsync, connectors } = useConnect()
@@ -45,10 +56,61 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (address) {
+      setWalletAddress(address)
+    }
+  }, [address])
+
+  useEffect(() => {
+    const ethereum = (window as typeof window & { ethereum?: EthereumProvider }).ethereum
+    if (!ethereum?.on) return
+
+    const handleAccountsChanged = (...args: unknown[]) => {
+      const accounts = args[0] as string[] | undefined
+      setWalletAddress(accounts?.[0] ?? null)
+    }
+
+    ethereum.on("accountsChanged", handleAccountsChanged)
+
+    return () => {
+      ethereum.removeListener?.("accountsChanged", handleAccountsChanged)
+    }
+  }, [])
+
+  const switchToSepolia = async (ethereum: EthereumProvider) => {
+    try {
+      await ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: `0x${sepolia.id.toString(16)}` }],
+      })
+    } catch (err) {
+      const code = typeof err === "object" && err && "code" in err ? (err as { code?: number }).code : undefined
+
+      if (code !== 4902) {
+        throw err
+      }
+
+      await ethereum.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: `0x${sepolia.id.toString(16)}`,
+            chainName: "Sepolia",
+            nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
+            rpcUrls: [process.env.NEXT_PUBLIC_ALCHEMY_SEPOLIA_URL ?? "https://rpc.sepolia.org"],
+            blockExplorerUrls: ["https://sepolia.etherscan.io"],
+          },
+        ],
+      })
+    }
+  }
+
   const connectWallet = async () => {
     setIsConnectingWallet(true)
+    setWalletError(null)
     try {
-      const ethereum = (window as typeof window & { ethereum?: { isMetaMask?: boolean } }).ethereum
+      const ethereum = (window as typeof window & { ethereum?: EthereumProvider }).ethereum
 
       if (!ethereum?.isMetaMask) {
         throw new Error("MetaMask was not detected. Install or enable MetaMask, then try again.")
@@ -56,23 +118,34 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
 
       const injected =
         connectors.find((connector) => connector.name.toLowerCase().includes("metamask")) ??
-        connectors.find((connector) => connector.id === "injected")
+        connectors[0]
 
       if (!injected) {
         throw new Error("MetaMask connector was not found")
       }
 
-      await connectAsync({ connector: injected })
+      const accounts = (await ethereum.request({ method: "eth_requestAccounts" })) as string[]
+      const nextAddress = accounts[0]
+
+      if (!nextAddress) {
+        throw new Error("MetaMask did not return an account")
+      }
+
+      await switchToSepolia(ethereum)
+      await connectAsync({ connector: injected, chainId: sepolia.id })
+      setWalletAddress(nextAddress)
+      return nextAddress
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "MetaMask connection failed"
+      setWalletError(message)
+      throw err
     } finally {
       setIsConnectingWallet(false)
     }
   }
 
   const connectGithub = async () => {
-    if (!address) {
-      await connectWallet()
-      return
-    }
+    const activeAddress = walletAddress ?? address ?? (await connectWallet())
 
     const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID
     const redirectUri = process.env.NEXT_PUBLIC_GITHUB_REDIRECT_URI
@@ -83,9 +156,9 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
 
     setIsConnectingGithub(true)
     const nonce = crypto.randomUUID()
-    const state = btoa(JSON.stringify({ nonce, walletAddress: address }))
+    const state = btoa(JSON.stringify({ nonce, walletAddress: activeAddress }))
     window.localStorage.setItem("gitrap.oauthState", nonce)
-    window.localStorage.setItem("gitrap.pendingWallet", address)
+    window.localStorage.setItem("gitrap.pendingWallet", activeAddress)
     document.cookie = `gitrap.oauthState=${nonce}; path=/; max-age=600; SameSite=Lax`
 
     const params = new URLSearchParams({
@@ -103,22 +176,24 @@ export function Web3AuthProvider({ children }: { children: ReactNode }) {
     window.localStorage.removeItem("gitrap.oauthState")
     window.localStorage.removeItem("gitrap.pendingWallet")
     setProfile(null)
+    setWalletAddress(null)
     disconnectWallet()
     router.push("/onboarding")
   }
 
   const value = useMemo<Web3AuthContextType>(
     () => ({
-      address: address ?? profile?.walletAddress ?? null,
+      address: walletAddress ?? address ?? profile?.walletAddress ?? null,
       githubHandle: profile?.githubUsername ?? null,
       profile,
       isConnectingWallet: isConnectingWallet || (!isConnected && false),
       isConnectingGithub,
+      walletError,
       connectWallet,
       connectGithub,
       disconnect,
     }),
-    [address, profile, isConnectingWallet, isConnected, isConnectingGithub]
+    [walletAddress, address, profile, isConnectingWallet, isConnected, isConnectingGithub, walletError]
   )
 
   return <Web3AuthContext.Provider value={value}>{children}</Web3AuthContext.Provider>
