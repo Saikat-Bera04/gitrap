@@ -55,13 +55,16 @@ export default function DaoDiscoveryPage() {
   const [users, setUsers] = useState<UserProfile[]>([])
   const [votes, setVotes] = useState<DaoVoteSummary>({})
   const [votingDao, setVotingDao] = useState<string | null>(null)
+  const [votingVerdict, setVotingVerdict] = useState<"verified" | "not_verified" | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const { address, connectWallet } = useWeb3Auth()
 
   useEffect(() => {
     const loadData = async () => {
       try {
         setError(null)
+        setIsLoading(true)
         
         console.log("[DAO] Loading leaderboard and votes data...")
         
@@ -83,6 +86,8 @@ export default function DaoDiscoveryPage() {
         const message = err instanceof Error ? err.message : "Unable to load verified contributors"
         console.error("[DAO] Error:", message)
         setError(message)
+      } finally {
+        setIsLoading(false)
       }
     }
     
@@ -91,6 +96,7 @@ export default function DaoDiscoveryPage() {
 
   const voteDao = async (daoName: string, verdict: "verified" | "not_verified") => {
     setVotingDao(daoName)
+    setVotingVerdict(verdict)
     setError(null)
     try {
       const walletAddress = address ?? (await connectWallet())
@@ -114,6 +120,7 @@ export default function DaoDiscoveryPage() {
       setError(message)
     } finally {
       setVotingDao(null)
+      setVotingVerdict(null)
     }
   }
 
@@ -170,16 +177,26 @@ export default function DaoDiscoveryPage() {
               <div className="grid grid-cols-2 gap-2 mt-5">
                 <button
                   onClick={() => void voteDao(dao.name, "verified")}
-                  className="industrial-button industrial-button-secondary h-9 text-[10px] flex items-center justify-center gap-1"
+                  disabled={votingDao === dao.name}
+                  className="industrial-button industrial-button-secondary h-9 text-[10px] flex items-center justify-center gap-1 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {votingDao === dao.name ? <Loader2 className="w-3 h-3 animate-spin" /> : <ThumbsUp className="w-3 h-3" />}
+                  {votingDao === dao.name && votingVerdict === "verified" ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <ThumbsUp className="w-3 h-3" />
+                  )}
                   VERIFIED {votes[dao.name]?.verified ?? 0}
                 </button>
                 <button
                   onClick={() => void voteDao(dao.name, "not_verified")}
-                  className="industrial-button h-9 text-[10px] flex items-center justify-center gap-1 bg-[#ff4757] text-white"
+                  disabled={votingDao === dao.name}
+                  className="industrial-button h-9 text-[10px] flex items-center justify-center gap-1 bg-[#ff4757] text-white disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <ThumbsDown className="w-3 h-3" />
+                  {votingDao === dao.name && votingVerdict === "not_verified" ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <ThumbsDown className="w-3 h-3" />
+                  )}
                   NOT {votes[dao.name]?.notVerified ?? 0}
                 </button>
               </div>
@@ -226,53 +243,60 @@ export default function DaoDiscoveryPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredUsers.map((dev) => {
-          const skills = inferSkills(dev)
-          return (
-            <div key={dev.id} className="industrial-card flex flex-col pt-6 pb-0 overflow-hidden group">
-              <div className="px-6 flex justify-between items-start mb-4">
-                <div className="w-16 h-16 rounded-full border-2 border-[#e0e5ec] shadow-[var(--shadow-card)] overflow-hidden shrink-0">
-                  <img src={dev.avatarUrl ?? `https://api.dicebear.com/7.x/identicon/svg?seed=${dev.walletAddress}`} alt="avatar" />
+      {isLoading ? (
+        <div className="industrial-card p-10 text-center text-[#4a5568]">
+          <Loader2 className="w-6 h-6 animate-spin inline-block mb-3" />
+          <p className="font-mono text-sm">Loading verified contributors...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredUsers.map((dev) => {
+            const skills = inferSkills(dev)
+            return (
+              <div key={dev.id} className="industrial-card flex flex-col pt-6 pb-0 overflow-hidden group">
+                <div className="px-6 flex justify-between items-start mb-4">
+                  <div className="w-16 h-16 rounded-full border-2 border-[#e0e5ec] shadow-[var(--shadow-card)] overflow-hidden shrink-0">
+                    <img src={dev.avatarUrl ?? `https://api.dicebear.com/7.x/identicon/svg?seed=${dev.walletAddress}`} alt="avatar" />
+                  </div>
+
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold tracking-widest uppercase shadow-[var(--shadow-recessed)] bg-green-100 text-green-700">
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                      VERIFIED
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-2">
-                  <div className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-bold tracking-widest uppercase shadow-[var(--shadow-recessed)] bg-green-100 text-green-700">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                    VERIFIED
+                <div className="px-6 mb-4">
+                  <h3 className="font-bold text-lg tracking-tight mb-1">{dev.githubUsername}</h3>
+                  <p className="text-xs font-mono text-[#4a5568]">{shortenAddress(dev.walletAddress)}</p>
+                </div>
+
+                <div className="px-6 flex flex-wrap gap-2 mb-6">
+                  {skills.map((skill) => (
+                    <span key={skill} className="px-2 py-1 bg-[#d1d9e6]/50 border border-[#a3b1c6]/30 text-[#2d3436] rounded text-[10px] font-mono tracking-widest shadow-sm">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+
+                <div className="mt-auto grid grid-cols-2 border-t border-[#a3b1c6]/30 bg-[#d1d9e6]/20 py-3">
+                  <div className="flex flex-col items-center border-r border-[#a3b1c6]/30">
+                    <div className="text-[10px] font-bold tracking-widest text-[#4a5568] mb-0.5 flex items-center justify-center gap-1"><Zap className="w-3 h-3"/> REP SCORE</div>
+                    <div className="font-mono font-bold text-[#ff4757]">{dev.score}</div>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="text-[10px] font-bold tracking-widest text-[#4a5568] mb-0.5 flex items-center justify-center gap-1"><Github className="w-3 h-3"/> REPOS</div>
+                    <div className="font-mono font-bold text-[#2d3436]">{dev.stats?.repositories ?? 0}</div>
                   </div>
                 </div>
               </div>
+            )
+          })}
+        </div>
+      )}
 
-              <div className="px-6 mb-4">
-                <h3 className="font-bold text-lg tracking-tight mb-1">{dev.githubUsername}</h3>
-                <p className="text-xs font-mono text-[#4a5568]">{shortenAddress(dev.walletAddress)}</p>
-              </div>
-
-              <div className="px-6 flex flex-wrap gap-2 mb-6">
-                {skills.map((skill) => (
-                  <span key={skill} className="px-2 py-1 bg-[#d1d9e6]/50 border border-[#a3b1c6]/30 text-[#2d3436] rounded text-[10px] font-mono tracking-widest shadow-sm">
-                    {skill}
-                  </span>
-                ))}
-              </div>
-
-              <div className="mt-auto grid grid-cols-2 border-t border-[#a3b1c6]/30 bg-[#d1d9e6]/20 py-3">
-                <div className="flex flex-col items-center border-r border-[#a3b1c6]/30">
-                  <div className="text-[10px] font-bold tracking-widest text-[#4a5568] mb-0.5 flex flex-center gap-1"><Zap className="w-3 h-3"/> REP SCORE</div>
-                  <div className="font-mono font-bold text-[#ff4757]">{dev.score}</div>
-                </div>
-                <div className="flex flex-col items-center">
-                  <div className="text-[10px] font-bold tracking-widest text-[#4a5568] mb-0.5 flex flex-center gap-1"><Github className="w-3 h-3"/> REPOS</div>
-                  <div className="font-mono font-bold text-[#2d3436]">{dev.stats?.repositories ?? 0}</div>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {!error && filteredUsers.length === 0 && (
+      {!error && !isLoading && filteredUsers.length === 0 && (
         <div className="industrial-card p-10 text-center text-[#4a5568]">
           No live contributors yet. Connect GitHub from onboarding to seed the discovery board.
         </div>
