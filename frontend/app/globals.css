@@ -252,10 +252,10 @@
   50% { opacity: 0.4; transform: scale(0.8) }
 }
 
-/* Smooth scrolling */
-html {
+/* Smooth scrolling - handled via data-scroll-behavior attribute */
+/* html {
   scroll-behavior: smooth;
-}
+} */
 
 /* Marquee animations */
 @keyframes marqueeLeft {
