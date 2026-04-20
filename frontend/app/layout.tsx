@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
-import { Web3AuthProvider } from '@/hooks/useWeb3Auth'
+import { Providers } from '@/components/providers'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
@@ -51,9 +51,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${jetBrainsMono.variable}`}>
       <body className="font-sans antialiased text-[#2d3436] bg-[#e0e5ec]">
-        <Web3AuthProvider>
+        <Providers>
           {children}
-        </Web3AuthProvider>
+        </Providers>
         <Analytics />
       </body>
     </html>

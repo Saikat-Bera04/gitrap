@@ -1,20 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { Hexagon, CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
-
-type MintState = "idle" | "pending" | "success" | "error"
+import { Hexagon, CheckCircle2, AlertCircle, Loader2, ExternalLink } from "lucide-react"
+import { useMintReputation } from "@/hooks/useMintReputation"
 
 export default function MintPage() {
-  const [mintState, setMintState] = useState<MintState>("idle")
+  const { mint, isPending, isConfirming, isSuccess, error, hash } = useMintReputation()
 
   const handleMint = () => {
-    setMintState("pending")
-    // Simulate transaction
-    setTimeout(() => {
-      // randomly succeed or fail for demo
-      Math.random() > 0.2 ? setMintState("success") : setMintState("error")
-    }, 2500)
+    // In a real flow, these come from the backend score generator
+    mint(842, 1204, 84, 142, "dev_wizard")
   }
 
   return (
@@ -99,7 +94,7 @@ export default function MintPage() {
              </div>
 
              <div className="mt-8">
-               {mintState === "idle" && (
+               {(!isPending && !isConfirming && !isSuccess && !error) && (
                  <button 
                    onClick={handleMint}
                    className="industrial-button industrial-button-primary w-full py-4 text-base tracking-widest shadow-lg flex items-center justify-center gap-2"
@@ -108,28 +103,49 @@ export default function MintPage() {
                  </button>
                )}
 
-               {mintState === "pending" && (
+               {isPending && (
                  <button disabled className="industrial-button industrial-button-secondary w-full py-4 text-base tracking-widest opacity-80 cursor-not-allowed flex items-center justify-center gap-2">
-                   <Loader2 className="w-5 h-5 animate-spin text-[#ff4757]" /> SIGNING TRANSACTION...
+                   <Loader2 className="w-5 h-5 animate-spin text-[#ff4757]" /> WAITING FOR WALLET...
                  </button>
                )}
 
-               {mintState === "success" && (
-                 <div className="w-full py-4 bg-green-50 text-green-700 border-2 border-green-500 rounded-xl font-bold tracking-widest text-center flex items-center justify-center gap-2 shadow-[var(--shadow-glow-green)]">
-                   <CheckCircle2 className="w-5 h-5" /> MINT SUCCESSFUL
+               {isConfirming && (
+                 <button disabled className="industrial-button industrial-button-secondary w-full py-4 text-base tracking-widest opacity-80 cursor-not-allowed flex flex-col items-center justify-center gap-1">
+                   <div className="flex items-center gap-2">
+                     <Loader2 className="w-5 h-5 animate-spin text-amber-500" /> CONFIRMING ON-CHAIN...
+                   </div>
+                   {hash && (
+                     <a href={`https://sepolia.etherscan.io/tx/${hash}`} target="_blank" className="text-[10px] text-amber-600 hover:underline flex items-center gap-1 font-mono tracking-widest lowercase">
+                       view on etherscan <ExternalLink className="w-3 h-3" />
+                     </a>
+                   )}
+                 </button>
+               )}
+
+               {isSuccess && (
+                 <div className="w-full py-4 bg-green-50 text-green-700 border-2 border-green-500 rounded-xl font-bold tracking-widest text-center flex flex-col items-center justify-center gap-2 shadow-[var(--shadow-glow-green)]">
+                   <div className="flex items-center gap-2"><CheckCircle2 className="w-5 h-5" /> MINT SUCCESSFUL</div>
+                   {hash && (
+                     <a href={`https://sepolia.etherscan.io/tx/${hash}`} target="_blank" className="text-[10px] text-green-700/70 hover:underline flex items-center gap-1 font-mono tracking-widest lowercase">
+                       view on etherscan <ExternalLink className="w-3 h-3" />
+                     </a>
+                   )}
                  </div>
                )}
 
-               {mintState === "error" && (
-                 <div className="w-full flex gap-2">
-                   <div className="flex-1 py-4 bg-red-50 text-red-700 border-2 border-[#ff4757] rounded-xl font-bold tracking-widest text-center flex items-center justify-center gap-2 shadow-[var(--shadow-glow)]">
-                     <AlertCircle className="w-5 h-5" /> FAILED
+               {error && (
+                 <div className="w-full flex flex-col gap-3">
+                   <div className="flex-1 py-4 bg-red-50 text-red-700 border-2 border-[#ff4757] rounded-xl font-bold tracking-widest text-center flex flex-col items-center justify-center shadow-[var(--shadow-glow)]">
+                     <div className="flex items-center gap-2 mb-1"><AlertCircle className="w-5 h-5" /> REJECTED / FAILED</div>
+                     <span className="text-[9px] font-mono leading-none tracking-normal lowercase truncate px-4 max-w-full opacity-60">
+                       {error.message.split('\n')[0]}
+                     </span>
                    </div>
                    <button 
-                     onClick={() => setMintState("idle")}
-                     className="industrial-button industrial-button-primary px-6"
+                     onClick={handleMint}
+                     className="industrial-button industrial-button-primary"
                    >
-                     RETRY
+                     RETRY MINT
                    </button>
                  </div>
                )}
