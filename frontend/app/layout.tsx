@@ -46,7 +46,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" data-scroll-behavior="smooth">
-      <body className="font-sans antialiased text-[#2d3436] bg-[#e0e5ec]">
+      <body className="font-sans antialiased text-[#2d3436] bg-[#e0e5ec]" suppressHydrationWarning>
         <Providers>
           {children}
         </Providers>
