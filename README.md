@@ -28,6 +28,11 @@ GitRap bridges the gap between GitHub activity and blockchain identity by:
 - [Contributing](#contributing)
 - [License](#license)
 
+
+
+
+
+
 ## 🏗️ Architecture
 
 ```
